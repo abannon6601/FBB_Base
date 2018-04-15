@@ -1,0 +1,13 @@
+.model testModel
+.inputs i1 i2 i3
+.outputs i h
+.names i1 a 
+.names i2 b 
+.names i3 c
+.names a b d
+.names c b e
+.names a d f
+.names d b e g
+.names f g h
+.names e g i
+.end
