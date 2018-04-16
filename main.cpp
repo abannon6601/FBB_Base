@@ -132,18 +132,21 @@ int main() {
 
         //if we haven't found an acceptable size list all the reachable nodes the source side
         vector<string> reachableNodes;
+        string mergeSide;
 
         if(sourceSideSize < sinkSideSize)
         {   // merge into source
             resetVisCurOp(circuitGraph);
             reachableNodesFromX(circuitGraph, source);
             reachableNodes = reachableGLOBAL;
+            mergeSide = source;
         }
         else
         {   // merge into sink
             resetVisCurOp(circuitGraph);
             reachableNodesFromX(circuitGraph, sink);
             reachableNodes = reachableGLOBAL;
+            mergeSide = sink;
         }
 
         reachableGLOBAL.clear();
@@ -151,63 +154,36 @@ int main() {
 
 
         //first strip non-prime and source and sink from the list
-	for (int i=0;i< reachableNodes.size();i++){
-		std::cout<<"REACHABLE NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
-	}
 
 	int i = 0;
         while (i < reachableNodes.size())
         {
-	    std::cout<<"PROCESSING NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
-            if(!circuitGraph[reachableNodes[i]].prime)
-                std::cout<<"I SEE A NON_PRIME NODE" <<std::endl;
 
             if (!(circuitGraph[reachableNodes[i]].prime) || reachableNodes[i] == source || reachableNodes[i] == sink)
             {
-		std::cout<<"ERASING NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
                 reachableNodes.erase(reachableNodes.begin() + i);
             }
-	    else{
-		++i;
-	    }
-	    std::cout<< i << std::endl;
-        }
-
-        std::cout  << "This is just a debug stopper" << std::endl;
-
-
-
-        /*
-         *
-
-        //first strip none-prime and the source itself from the list
-        for (int i = 0; i < reachableNodes.size(); i++)
-        {
-            if (!(circuitGraph[reachableNodes[i]].prime) || reachableNodes[i] == source)
+	        else
             {
-                reachableNodes.erase(reachableNodes.begin() + i);
-            }
+		        ++i;
+	        }
         }
 
         //merge all nodes remaining
         for (int i = 0; i < reachableNodes.size(); i++) {
-            mergeNodes(circuitGraph, source, reachableNodes[i]);
+            mergeNodes(circuitGraph, mergeSide, reachableNodes[i]);
         }
 
         //merge a neighbor (or reachable?) of the new supernode;
 
-        vector<string> neighbors = findPrimeNeighbors(circuitGraph, source);
+        vector<string> neighbors = findPrimeNeighbors(circuitGraph, mergeSide);
 
         if (neighbors.size() < 1) {
             std::cout << "FBB-Partitioner: No neighbors found" << std::endl;
             return 1;
         }
 
-        mergeNodes(circuitGraph, source, neighbors[0]);   //TODO, choose this rather than going for 0-index
-
-                  *
-         */
-
+        mergeNodes(circuitGraph, mergeSide, neighbors[0]);   //TODO, choose this rather than going for 0-index
 
     }
 
