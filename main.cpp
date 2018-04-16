@@ -130,7 +130,7 @@ int main() {
 
 
 
-        //if we haven't found an acceptible size list all the reachable nodes the source side
+        //if we haven't found an acceptable size list all the reachable nodes the source side
         vector<string> reachableNodes;
 
         if(sourceSideSize < sinkSideSize)
@@ -146,6 +146,8 @@ int main() {
             reachableNodes = reachableGLOBAL;
         }
 
+        reachableGLOBAL.clear();
+
 
 
         //first strip non-prime and source and sink from the list
@@ -154,10 +156,10 @@ int main() {
             if(!circuitGraph[reachableNodes[i]].prime)
                 std::cout<<"I SEE A NON_PRIME NODE" <<std::endl;
 
-            if (circuitGraph[reachableNodes[i]].prime == false || reachableNodes[i] == source || reachableNodes[i] == sink)
+            if (!(circuitGraph[reachableNodes[i]].prime) || reachableNodes[i] == source || reachableNodes[i] == sink)
             {
                 reachableNodes.erase(reachableNodes.begin() + i);
-                i = 0;
+                int i = 0;
             }
         }
 
