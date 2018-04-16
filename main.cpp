@@ -50,7 +50,7 @@ int main() {
 
     std::cout << "FBB-Partitioner: running" << std::endl;
 
-    std::map<std::string, node> circuitGraph = readFile("C:/Users/Alan/CLionProjects/FBB_partitioner/benchmark_files/testModel.blif");  // read in the hypergraph
+    std::map<std::string, node> circuitGraph = readFile("../benchmark_files/testModel.blif");  // read in the hypergraph
 
     std::cout << "FBB-Partitioner: Gate nodes in file: " << circuitGraph.size() << std::endl;
 
@@ -151,16 +151,26 @@ int main() {
 
 
         //first strip non-prime and source and sink from the list
-        for (int i = 0; i < reachableNodes.size(); i++)
+	for (int i=0;i< reachableNodes.size();i++){
+		std::cout<<"REACHABLE NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
+	}
+
+	int i = 0;
+        while (i < reachableNodes.size())
         {
+	    std::cout<<"PROCESSING NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
             if(!circuitGraph[reachableNodes[i]].prime)
                 std::cout<<"I SEE A NON_PRIME NODE" <<std::endl;
 
             if (!(circuitGraph[reachableNodes[i]].prime) || reachableNodes[i] == source || reachableNodes[i] == sink)
             {
+		std::cout<<"ERASING NODE " << circuitGraph[reachableNodes[i]].name<<std::endl;
                 reachableNodes.erase(reachableNodes.begin() + i);
-                int i = 0;
             }
+	    else{
+		++i;
+	    }
+	    std::cout<< i << std::endl;
         }
 
         std::cout  << "This is just a debug stopper" << std::endl;
