@@ -80,7 +80,7 @@ map<string, node> readFile(string fileAdr){
     }
     else
     {
-        throw std::invalid_argument( "Unable to read file" );
+        throw std::invalid_argument( "FBB-Partitioner: Unable to read file" );
     }
 
     // at this point each node only knows its inputs, but has no information about outputs (only half connected)
