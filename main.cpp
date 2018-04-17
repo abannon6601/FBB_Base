@@ -1,10 +1,9 @@
 /*
  * Current Issues:
  *
- * non-prime nodes not being removed from potential merge set
+ *  Switch from recursive to itterative
  *
- * need to choose whether to merge all source or sink side nodes: at the moment just defaulting to source-side
- *
+ *  SetDepthMetric doesn't work. Look at old fucntion for comparison
  *
  * Unreachable nodes?
  *
@@ -23,14 +22,15 @@
 #include <vector>
 #include <algorithm>
 #include <list>
+#include <queue>
 #include <math.h>
 #include "Hmain.h"
+
 
 using namespace std;
 
 
 void resetVisCurOp(std::map<std::string, node> &nodeMap);
-void setDepthMetric(std::map<std::string, node> &nodeMap, string workingNode, int depth);
 std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, string workingNode);
 std::vector<string> bfs_path_generate(std::map<std::string, node> &nodeMap, string workingNode, string targetNode);
 bool compareByDepth(const node& a,  const node& b);
@@ -38,6 +38,8 @@ int update_flow(std::map<std::string, node> &nodeMap, vector<string> path);
 void reachableNodesFromX(std::map<std::string, node> &nodeMap, string workingNode);
 int sizeReachableFromX(std::map<std::string, node> &nodeMap, string workingNode);
 void mergeNodes(std::map<std::string, node> &nodeMap,string host, string victim);
+
+void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string startNode);
 
 float solutionRatioTarget = 0.5f;
 float solutionDeviation = 0.1f;              // TODO: both of these should be passed as arguments
@@ -67,22 +69,21 @@ int main() {
         it++;
     }
 
-    string source = "a";    // TODO THESE ARE SET FOR THE TEST MODEL ONLY CHANGE FOR ANY OTHER MODEL
-    string sink = "i";       // TODO EXTENSION: choose these nodes
+    string source =  inputs[0];
+    string sink = outputs[0];       // TODO EXTENSION: choose these nodes
 
     hyperToFlow(circuitGraph);   // convert the hypergraph to a flow graph
 
     int nodes = circuitGraph.size(); // update the number of nodes in the graph after flow conversion
 
-    std::cout << "FBB-Partitioner: Setup complete. Processing" << std::endl;
-
-
     vector<string> foundPath;
 
     circuitGraph[sink].depth = 1;    // setup the depth of the sink to be 1
 
-    resetVisCurOp(circuitGraph);
-    setDepthMetric(circuitGraph, sink, 0); // set the depth metric for the flow graph
+    //resetVisCurOp(circuitGraph);
+    SetDepthMetric(circuitGraph, sink); // set the depth metric for the flow graph
+
+    std::cout << "FBB-Partitioner: Setup complete. Processing" << std::endl;
 
     // START OF LOOP
 
@@ -210,46 +211,56 @@ void resetVisCurOp(std::map<std::string, node> &nodeMap)
     }
 }
 
-void setDepthMetric(std::map<std::string, node> &nodeMap, string workingNode, int depth)
+// Sets the depth metric of all nodes reachable from startNode.
+void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string startNode)
 {
-    if (nodeMap.count(workingNode) == 0) // called on non-existant node
+    /*
+     * Sequence:
+     *
+     * start: Push workingNode into a queue:
+     * loop:
+     *  pull a node from the queue
+     *  look at all the depths of PRIME nodes it links to
+     *  if they're less than our depth + 1 update them
+     *  and add them to the list of nodes to be processed
+     *  repeat:
+     */
+
+    queue <string> processQ;
+
+    localCircuitGraph[startNode].depth = 0; // setup the depth at the start
+    processQ.push(startNode);
+
+    node tempNode;
+    int tempDepth;
+
+    while(processQ.size() > 0)
     {
-        //cout<< "setDepthMetric CALLED ON NON-EXISTENT NODE" <<endl;
-        return;
-    }
+        tempNode = localCircuitGraph[processQ.front()];
+        tempDepth = tempNode.depth;
 
-    node temp;
-    temp = nodeMap[workingNode];
+        vector <string> neighbors = findPrimeNeighbors(localCircuitGraph, processQ.front());
 
-    depth++;
-
-    // we go prime node to prime nodes ONLY
-    vector <string> neighbors = findPrimeNeighbors(nodeMap, workingNode);
-
-
-    if(temp.depth > depth)
-    {
-        nodeMap[workingNode].depth = depth; // we found a shorter path to the node, so update the flow and keep going
-        if(nodeMap[workingNode].inOut != 2)
+        for(int i  = 0; i < neighbors.size(); i ++)
         {
-            nodeMap[nodeMap[workingNode].relativeN1].depth = depth;
-            nodeMap[nodeMap[workingNode].relativeN2].depth = depth;
+
+            if(localCircuitGraph[neighbors[i]].depth > (tempDepth + 1))
+            {
+                localCircuitGraph[neighbors[i]].depth = tempDepth + 1;
+                if(localCircuitGraph[neighbors[i]].inOut != 2)
+                {
+                    localCircuitGraph[localCircuitGraph[neighbors[i]].relativeN1].depth = tempDepth + 1;
+                    localCircuitGraph[localCircuitGraph[neighbors[i]].relativeN2].depth = tempDepth + 1;
+                }
+                processQ.push(neighbors[i]);
+            }
         }
-        for(int i = 0; i < neighbors.size(); i++)
-            setDepthMetric(nodeMap, neighbors[i], depth);
-        nodeMap[workingNode].visCurOp = true;
-        return;
+
+        processQ.pop();
+        cout << endl;
     }
-
-    if (temp.visCurOp)   // we've already pinged this node
-        return;
-    else
-        nodeMap[workingNode].visCurOp = true;
-
-    for(int i = 0; i < neighbors.size(); i++)
-        setDepthMetric(nodeMap, neighbors[i], depth);   // we may not have updated the flow, but we haven't visited this node (not sure this will ever happen)
-
 }
+
 
 // finds all prime node neighbors of a prime node (DO NOT CALL ON N-NODES)
 std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, string workingNode)
@@ -283,6 +294,41 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
     return neighbors;
 }
 
+std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
+{
+    /*
+     * Sequence:
+     *
+     * start:
+     *      Push startNode into the queue
+     * loop while we have ndoes in the queue:
+     *      Look at its neighbors (both prime and non-prime) that are unsaturated
+     *      if any are the target add it to the path and return
+     *      if not pick the best neighbor (not fobidden) to the queue and finish
+     *      if we can't continue, and haven't reached the target, add the current node to the list of forbidden nodes
+     *      -and add the last node before us back into the queue.
+     *
+     */
+
+    queue <string> processQ;
+    vector <string> path;       // path we return
+    vector <string> Dwimorberg; // nodes we've tried to pass through and are a dead-end (the way is shut)
+
+    processQ.push(startNode);
+
+    node tempNode;
+
+    while(processQ.size() > 0)
+    {
+        tempNode = localCircuitGraph[processQ.front()];
+
+        processQ.pop();
+    }
+
+
+}
+
+
 std::vector<string> bfs_path_generate(std::map<std::string, node> &nodeMap, string workingNode, string targetNode)
 {
     if(nodeMap.count(workingNode) == 0) // called on non-existant node
@@ -306,7 +352,6 @@ std::vector<string> bfs_path_generate(std::map<std::string, node> &nodeMap, stri
         result.push_back(workingNode);
         return result;                  // return our node up the recursion
     }
-
     else
     {
         vector<string> neighborsNames;
@@ -398,6 +443,7 @@ int update_flow(std::map<std::string, node> &nodeMap, vector<string> path)
     return 1;
 }
 
+// RECURSIVE
 int sizeReachableFromX(std::map<std::string, node> &nodeMap, string workingNode)
 {
     if(nodeMap.count(workingNode) == 0) // called on non-existant node
@@ -426,6 +472,7 @@ int sizeReachableFromX(std::map<std::string, node> &nodeMap, string workingNode)
     return result;
 }
 
+// RECURSIVE
 // fills the global reachableGLOBAL vector with nodes reachble from workingNode
 void reachableNodesFromX(std::map<std::string, node> &nodeMap, string workingNode)
 {
