@@ -3,7 +3,7 @@
  *
  *  Switch from recursive to itterative
  *
- *  SetDepthMetric doesn't work. Look at old fucntion for comparison
+ *  bfsPathGen is a work in progress
  *
  * Unreachable nodes?
  *
@@ -40,6 +40,7 @@ int sizeReachableFromX(std::map<std::string, node> &nodeMap, string workingNode)
 void mergeNodes(std::map<std::string, node> &nodeMap,string host, string victim);
 
 void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string startNode);
+std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
 
 float solutionRatioTarget = 0.5f;
 float solutionDeviation = 0.1f;              // TODO: both of these should be passed as arguments
@@ -69,41 +70,46 @@ int main() {
         it++;
     }
 
+
     string source =  inputs[0];
-    string sink = outputs[0];       // TODO EXTENSION: choose these nodes
+    string sink = outputs[1];       // TODO EXTENSION: choose these nodes
 
     hyperToFlow(circuitGraph);   // convert the hypergraph to a flow graph
 
     int nodes = circuitGraph.size(); // update the number of nodes in the graph after flow conversion
 
-    vector<string> foundPath;
 
-    circuitGraph[sink].depth = 1;    // setup the depth of the sink to be 1
 
-    //resetVisCurOp(circuitGraph);
+
     SetDepthMetric(circuitGraph, sink); // set the depth metric for the flow graph
 
     std::cout << "FBB-Partitioner: Setup complete. Processing" << std::endl;
 
     // START OF LOOP
 
+    //loop variables
+    vector<string> foundPath;
+
     for(int cycles = 0; cycles < nodes; cycles++)  // don't do more loops than nodes
     {
 
         do {
+
+
+            //foundPath = bfs_path_generate(circuitGraph, source, sink);
             resetVisCurOp(circuitGraph);
-            foundPath = bfs_path_generate(circuitGraph, source, sink);
+            foundPath = bfsPathGen(circuitGraph, source, sink);
 
             if (foundPath.size() < 1)        // we don't have a path
             {
                 continue;
             }
-            if (foundPath.front() != sink)   // we didn't reach the sink, so no augmenting path
+            if (foundPath.back() != sink)   // we didn't reach the sink, so no augmenting path
             {
                 continue;
             }
 
-            std::reverse(foundPath.begin(), foundPath.end());    // flip the path to be from source to sink
+            //std::reverse(foundPath.begin(), foundPath.end());    // flip the path to be from source to sink
 
             update_flow(circuitGraph, foundPath);    // push more flow along the path
         } while (foundPath.size() > 0);    // repeat until we run out of paths
@@ -126,6 +132,7 @@ int main() {
             std::cout << "FBB-Partitioner: VALID PARTITION FOUND" << std::endl;
             return 0;
         }
+        // TODO check both sides (not just source)
 
 
 
@@ -156,7 +163,7 @@ int main() {
 
         //first strip non-prime and source and sink from the list
 
-	int i = 0;
+	    int i = 0;
         while (i < reachableNodes.size())
         {
 
@@ -173,11 +180,18 @@ int main() {
         //merge all nodes remaining
         for (int i = 0; i < reachableNodes.size(); i++) {
             mergeNodes(circuitGraph, mergeSide, reachableNodes[i]);
+            cout<<"DEBUG: I'm merging " << reachableNodes[i] <<" into " << mergeSide << " during a group merge"<< endl;
         }
 
         //merge a neighbor (or reachable?) of the new supernode;
 
         vector<string> neighbors = findPrimeNeighbors(circuitGraph, mergeSide);
+
+        cout<<"DEBUG: I see "<< mergeSide << " has neighbors: ";
+        for(int i = 0; i < neighbors.size(); i++)
+            cout <<" " << neighbors[i];
+        cout << endl;
+
 
         if (neighbors.size() < 1) {
             std::cout << "FBB-Partitioner: No neighbors found" << std::endl;
@@ -185,7 +199,7 @@ int main() {
         }
 
         mergeNodes(circuitGraph, mergeSide, neighbors[0]);   //TODO, choose this rather than going for 0-index
-
+        cout<<"DEBUG: I'm merging " << neighbors[0] <<" into " << mergeSide << endl;
     }
 
 
@@ -257,7 +271,6 @@ void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string start
         }
 
         processQ.pop();
-        cout << endl;
     }
 }
 
@@ -276,7 +289,8 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
             continue;
 
         // this will point to N1 nodes, so go look for the primes
-        neighbors.push_back(nodeMap[temp.outputs[i]].relativePrime);
+        if(!nodeMap[temp.outputs[i]].orphan)    // don't list merged nodes
+            neighbors.push_back(nodeMap[temp.outputs[i]].relativePrime);
     }
 
     if(temp.inOut != 2)
@@ -294,6 +308,7 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
     return neighbors;
 }
 
+// Even though this is not recursive resetVisCurOp MUST BE RUN before using this function.
 std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
 {
     /*
@@ -305,25 +320,112 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
      *      Look at its neighbors (both prime and non-prime) that are unsaturated
      *      if any are the target add it to the path and return
      *      if not pick the best neighbor (not fobidden) to the queue and finish
-     *      if we can't continue, and haven't reached the target, add the current node to the list of forbidden nodes
+     *      if we can't continue, and haven't reached the target, mark it as illegal (visCurOp = true)
      *      -and add the last node before us back into the queue.
      *
      */
 
     queue <string> processQ;
     vector <string> path;       // path we return
-    vector <string> Dwimorberg; // nodes we've tried to pass through and are a dead-end (the way is shut)
 
     processQ.push(startNode);
 
     node tempNode;
+    vector <string> outputs;
 
     while(processQ.size() > 0)
     {
         tempNode = localCircuitGraph[processQ.front()];
+        outputs.clear();
 
+        // extract all VALID outputs
+       for(int i = 0; i < tempNode.outputs.size(); i++)
+        {
+            if(!localCircuitGraph[tempNode.outputs[i]].visCurOp && (tempNode.outputs_capacity[i] > tempNode.outputs_flow[i]))
+            {
+                outputs.push_back(tempNode.outputs[i]);
+
+                if(tempNode.outputs[i] == targetNode)   // we reached target
+                {
+                    path.push_back(tempNode.name);
+                    path.push_back(tempNode.outputs[i]);
+                    return path;
+                }
+
+            }
+        }
+
+        // Check outputs
+        if(outputs.size() < 1)  // we don't have any valid paths from this node
+        {
+            if(path.size() < 1) // we've exhausted all nodes
+            {
+                path.clear();
+                return path;
+            }
+
+
+            // TODO check that the node we're currently on is in the path and if it is remove it BEFORE pushing the last element into the queue
+
+            if(std::find(path.begin(), path.end(), tempNode.name) != path.end())
+            {
+                path.erase(std::remove(path.begin(), path.end(), tempNode.name), path.end());   // if this node already exists in the path, remove it.
+                cout<<"DEBUG: removing from path " << tempNode.name << endl;
+            }
+
+
+            if(path.size() > 0)
+            {
+                processQ.push(path.back()); //push the last node back into the queue
+                localCircuitGraph[tempNode.name].visCurOp = true; // mark this node as a dead-end
+                cout<<"DEBUG: I'm backtracking to "<< path.back() << endl;
+                processQ.pop();
+                continue;
+            }
+            else
+            {
+                path.clear();
+                return path;    // we ran out of nodes
+            }
+
+
+
+        }
+
+
+        // set up an array of nodes so we can sort the nieghbors by depth
+        vector<node> neighborsNodes;
+        for(int i = 0; i < outputs.size(); i++)
+        {
+            neighborsNodes.push_back(localCircuitGraph[outputs[i]]);
+        }
+
+        // sort the neighbors by depth
+        std::sort(neighborsNodes.begin(), neighborsNodes.end(), compareByDepth);
+
+        processQ.push(neighborsNodes[0].name); // select the node with the lowest depth to process next
+        localCircuitGraph[tempNode.name].visCurOp = true;
         processQ.pop();
+
+        if(path.size() > 0) // path.beck segfaults if called on empty vector
+        {
+            if (path.back() != tempNode.name)    // the name may already be there if we backtracked
+            {
+                path.push_back(tempNode.name);
+            }
+        }
+        else
+        {
+            path.push_back(tempNode.name);
+        }
+
+
+
     }
+
+    // at this point we've failed to find a path
+    path.clear();
+    return path;
 
 
 }
