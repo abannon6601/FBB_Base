@@ -3,7 +3,8 @@
  *
  *  Switch from recursive to itterative
  *
- *  bfsPathGen is a work in progress
+ *  bfsGuidedPathGen is very slow to return a path failure. Maybe make new BFS_exists funciton to only
+ *  call gen when a path exists.
  *
  * Unreachable nodes?
  *
@@ -25,12 +26,14 @@
 #include <queue>
 #include <math.h>
 #include "Hmain.h"
+#include <ctime>
+#include <random>
 
 
 using namespace std;
 
 
-void resetVisCurOp(std::map<std::string, node> &nodeMap);
+void resetGraph(std::map<std::string, node> &nodeMap);
 std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, string workingNode);
 bool compareByDepth(const node& a,  const node& b);
 int update_flow(std::map<std::string, node> &nodeMap, vector<string> path);
@@ -38,22 +41,27 @@ int update_flow(std::map<std::string, node> &nodeMap, vector<string> path);
 void mergeNodes(std::map<std::string, node> &nodeMap,string host, string victim);
 
 void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string startNode);
-std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
+std::vector<string> bfsGuidedPathGen(std::map<std::string, node> &localCircuitGraph, string startNode,
+                                     string targetNode);
 std::vector<string> nodesReachableFromX(std::map<std::string, node> &localCircuitGraph, string startNode);
 int weightReachableFromX(std::map<std::string, node> &localCircuitGraph, string startNode);
+bool pathExists(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
+std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
 
 float solutionRatioTarget = 0.5f;
 float solutionDeviation = 0.1f;              // TODO: both of these should be passed as arguments
 
 std::vector<string> reachableGLOBAL;    // used to store reachable nodes from another node
 
+std::clock_t start;
+double duration;
 
 
 int main() {
 
     std::cout << "FBB-Partitioner: running" << std::endl;
 
-    std::map<std::string, node> circuitGraph = readFile("../benchmark_files/b20_opt.blif");  // read in the hypergraph
+    std::map<std::string, node> circuitGraph = readFile("../benchmark_files/testModel.blif");  // read in the hypergraph
 
     std::cout << "FBB-Partitioner: Gate nodes in file: " << circuitGraph.size() << std::endl;
 
@@ -70,9 +78,20 @@ int main() {
         it++;
     }
 
+    srand(time(NULL));
 
-    string source =  inputs[0];
-    string sink = outputs[1];       // TODO EXTENSION: choose these nodes
+    int inputIndex = (0 + (rand() % (int)(inputs.size())));
+    int outputIndex = (0 + (rand() % (int)(outputs.size())));
+
+    string source =  inputs[inputIndex];
+    string sink = outputs[outputIndex];       // TODO EXTENSION: choose these nodes
+
+    // OVERRIDE for sink/source
+
+    source = "c";
+    sink = "h";
+
+    std::cout << "FBB-Partitioner: Source chosen as: " << source << ". Sink chosen as: " << sink << std::endl;
 
     hyperToFlow(circuitGraph);   // convert the hypergraph to a flow graph
 
@@ -95,21 +114,21 @@ int main() {
 
         do {
 
-
-            //foundPath = bfs_path_generate(circuitGraph, source, sink);
-            resetVisCurOp(circuitGraph);
+            resetGraph(circuitGraph);
+            start = std::clock();   // start a clock
+            //foundPath = bfsGuidedPathGen(circuitGraph, source, sink);
             foundPath = bfsPathGen(circuitGraph, source, sink);
+            duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+            std::cout<<"DEBUG: BFS took: "<< duration <<std::endl;
+
+
 
             if (foundPath.size() < 1)        // we don't have a path
             {
                 break;
             }
-            if (foundPath.back() != sink)   // we didn't reach the sink, so no augmenting path
-            {
-                break;
-            }
 
-            //std::reverse(foundPath.begin(), foundPath.end());    // flip the path to be from source to sink
+            std::reverse(foundPath.begin(), foundPath.end());    // flip the path to be from source to sink
 
             update_flow(circuitGraph, foundPath);    // push more flow along the path
         } while (foundPath.size() > 0);    // repeat until we run out of paths
@@ -120,9 +139,9 @@ int main() {
 
 
         //look at the size of the sections we have
-        resetVisCurOp(circuitGraph);
+        resetGraph(circuitGraph);
         int sourceSideSize = weightReachableFromX(circuitGraph, source);
-        resetVisCurOp(circuitGraph);
+        resetGraph(circuitGraph);
         int sinkSideSize = weightReachableFromX(circuitGraph, sink);
 
         // check to see if the current partition is good enouch
@@ -144,13 +163,13 @@ int main() {
 
         if(sourceSideSize < sinkSideSize)
         {   // merge into source
-            resetVisCurOp(circuitGraph);
+            resetGraph(circuitGraph);
             reachableNodes = nodesReachableFromX(circuitGraph, source);
             mergeSide = source;
         }
         else
         {   // merge into sink
-            resetVisCurOp(circuitGraph);
+            resetGraph(circuitGraph);
             reachableNodes = nodesReachableFromX(circuitGraph, sink);
             mergeSide = sink;
         }
@@ -208,13 +227,14 @@ int main() {
 
 
 // clears the visCurOp flag for every node in the graph
-void resetVisCurOp(std::map<std::string, node> &nodeMap)
+void resetGraph(std::map<std::string, node> &nodeMap)
 {
     std::map<std::string, node>::iterator it = nodeMap.begin();
 
     while (it != nodeMap.end())
     {
         it->second.visCurOp = false;
+        it->second.visitedFrom.clear();
         it++;
     }
 }
@@ -287,9 +307,9 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
             neighbors.push_back(nodeMap[temp.outputs[i]].relativePrime);
     }
 
-    if(temp.inOut != 2)
+    if(temp.inOut != 2) // After merge there may be one than one of these!
     {
-        temp = nodeMap[temp.relativeN2];    // switch to the n2 node (need to check this existss)
+        temp = nodeMap[temp.relativeN2];    // switch to the n2 node
         for (int i = 0; i < temp.outputs.size(); ++i)
         {
             if(temp.outputs[i] == workingNode)  // don't include the prime link
@@ -302,8 +322,8 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
     return neighbors;
 }
 
-// Even though this is not recursive resetVisCurOp MUST BE RUN before using this function.
-std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
+// Even though this is not recursive resetGraph MUST BE RUN before using this function.
+std::vector<string> bfsGuidedPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
 {
     /*
      * Sequence:
@@ -327,8 +347,12 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
     node tempNode;
     vector <string> outputs;
 
+    int nodesProcessed = 0;
+
     while(processQ.size() > 0)
     {
+        nodesProcessed++;
+
         tempNode = localCircuitGraph[processQ.front()];
         outputs.clear();
 
@@ -343,6 +367,7 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
                 {
                     path.push_back(tempNode.name);
                     path.push_back(tempNode.outputs[i]);
+                    cout<<"DEBUG: BFS search processed " << nodesProcessed << " nodes" <<endl;
                     return path;
                 }
 
@@ -355,16 +380,15 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
             if(path.size() < 1) // we've exhausted all nodes
             {
                 path.clear();
+                cout<<"DEBUG: BFS search processed " << nodesProcessed << " nodes" <<endl;
                 return path;
             }
 
 
-            // TODO check that the node we're currently on is in the path and if it is remove it BEFORE pushing the last element into the queue
-
             if(std::find(path.begin(), path.end(), tempNode.name) != path.end())
             {
-                path.erase(std::remove(path.begin(), path.end(), tempNode.name), path.end());   // if this node already exists in the path, remove it.
-                //cout<<"DEBUG: removing from path " << tempNode.name << endl;
+                //cout<<"DEBUG: BFS removing from path " << path.back() << endl;
+                path.pop_back();
             }
 
 
@@ -372,13 +396,14 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
             {
                 processQ.push(path.back()); //push the last node back into the queue
                 localCircuitGraph[tempNode.name].visCurOp = true; // mark this node as a dead-end
-                //cout<<"DEBUG: I'm backtracking to "<< path.back() << endl;
+                //cout<<"DEBUG: BFS backtracking to "<< path.back() << endl;
                 processQ.pop();
                 continue;
             }
             else
             {
                 path.clear();
+                cout<<"DEBUG: BFS search processed " << nodesProcessed << " nodes" <<endl;
                 return path;    // we ran out of nodes
             }
 
@@ -418,12 +443,14 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
         if(processQ.size() > 10) // something is fucky
             cout<<"DEBUG: BFS search process queue is overflowing" <<endl;
 
+        /*
         if(path.size() > localCircuitGraph.size()/10)
         {
             cout<<"DEBUG: BFS path is off-scale high" <<endl;
             path.clear();
             return path;
         }
+         */
 
 
 
@@ -432,6 +459,7 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
 
     // at this point we've failed to find a path
     path.clear();
+    cout<<"DEBUG: BFS search processed " << nodesProcessed << " nodes" <<endl;
     return path;
 
 
@@ -482,7 +510,7 @@ int update_flow(std::map<std::string, node> &nodeMap, vector<string> path)
     return 1;
 }
 
-// resetVisCurOp MUST BE RUN BEFORE THIS
+// resetGraph MUST BE RUN BEFORE THIS
 // returns the summed weight of nodes reachable from node X without passing through a saturated edge
 int weightReachableFromX(std::map<std::string, node> &localCircuitGraph, string startNode)
 {
@@ -524,9 +552,120 @@ int weightReachableFromX(std::map<std::string, node> &localCircuitGraph, string 
 
 }
 
+std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
+{
+    queue <string> processQ;
+
+    processQ.push(startNode);
+
+    node tempNode;
+    vector <string> outputs;
+
+    vector<string> path;
+
+    while(processQ.size() > 0)
+    {
+        tempNode=localCircuitGraph[processQ.front()];
+
+        if(tempNode.name == targetNode)
+            break;
+
+        if(tempNode.visCurOp)
+        {
+            processQ.pop();
+            continue;       // we've already logged this node
+        }
+        else
+            localCircuitGraph[tempNode.name].visCurOp = true;
 
 
-// resetVisCurOp MUST BE RUN BEFORE THIS
+        for(int i = 0; i < tempNode.outputs.size(); i++)
+        {
+            if(tempNode.outputs_flow[i] < tempNode.outputs_capacity[i])
+            {
+                if(localCircuitGraph[tempNode.outputs[i]].visitedFrom.size() < 1)   // only look at outputs that haven't already been proessed
+                {
+                    processQ.push(tempNode.outputs[i]); // queue all outputs not saturated to be processed
+                    localCircuitGraph[tempNode.outputs[i]].visitedFrom = tempNode.name;
+                }
+            }
+        }
+
+        processQ.pop();
+    }
+
+    if(localCircuitGraph[targetNode].visitedFrom.size() > 0)    // if we actually reached the target work backwards using visited From
+    {
+        localCircuitGraph[startNode].visitedFrom.clear(); // shouldn't be needed, but why take chances
+
+        queue <string> processQ2;
+        processQ2.push(targetNode);
+
+        path.push_back(targetNode);
+
+        while(processQ2.size() > 0)
+        {
+            tempNode = localCircuitGraph[processQ2.front()];
+
+            if(tempNode.visitedFrom.size() > 0)
+            {
+                processQ2.push(tempNode.visitedFrom);
+                path.push_back(tempNode.visitedFrom);
+            }
+
+            processQ2.pop();
+        }
+
+        return path;
+    }
+    else
+    {
+        path.clear();
+        return path;
+    }
+
+}
+
+bool pathExists(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode)
+{
+    queue <string> processQ;
+
+    processQ.push(startNode);
+
+    node tempNode;
+    vector <string> outputs;
+
+    while(processQ.size() > 0)
+    {
+        tempNode=localCircuitGraph[processQ.front()];
+
+        if(tempNode.name == targetNode)
+            return true;
+
+        if(tempNode.visCurOp)
+        {
+            processQ.pop();
+            continue;       // we've already logged this node
+        }
+        else
+            localCircuitGraph[tempNode.name].visCurOp = true;
+
+
+        for(int i = 0; i < tempNode.outputs.size(); i++)
+        {
+            if(tempNode.outputs_flow[i] < tempNode.outputs_capacity[i])
+            {
+                processQ.push(tempNode.outputs[i]); // queue all outputs not saturated to be processed
+            }
+        }
+
+        processQ.pop();
+    }
+
+    return false;
+}
+
+// resetGraph MUST BE RUN BEFORE THIS
 // returns a vector of nodes reachable from node X without passing through a saturated edge
 std::vector<string> nodesReachableFromX(std::map<std::string, node> &localCircuitGraph, string startNode)
 {

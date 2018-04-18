@@ -22,18 +22,22 @@ struct node {
     vector<int> outputs_flow;
     bool visCurOp = false;  // during any operation on the matrix this is set high if the node has been visited
     int weight = 1; // as nodes are combined this is increased
+
     vector<string> mergedNodes; // holds the names of all the nodes we've merged with ONLY USED FOR SOURCE AND SINK NODES
     string relativePrime;
     string relativeN1;
     string relativeN2;
     bool orphan = false;    // set true if the original prime node has been merged
+
     int depth = INT_MAX;
+
+    string visitedFrom; // used in BFS for path reporting
 };
 
 
 map<string, node> readFile(string fileAdr);
 int hyperToFlow(std::map<std::string, node> &nodeMap);
-void resetVisCurOp(std::map<std::string, node> &nodeMap);
+void resetGraph(std::map<std::string, node> &nodeMap);
 std::vector<string> bfs_path_generate(std::map<std::string, node> &nodeMap, string workingNode, string targetNode);
 int update_flow(std::map<std::string, node> &nodeMap, vector<string> path);
 bool bfs_path_exists(std::map<std::string, node> &nodeMap, string workingNode, string sink, vector<string> illegalNodes);
