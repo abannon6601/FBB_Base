@@ -24,6 +24,7 @@ struct node {
     int weight = 1; // as nodes are combined this is increased
 
     vector<string> mergedNodes; // holds the names of all the nodes we've merged with ONLY USED FOR SOURCE AND SINK NODES
+    vector<string> mergedN2Nodes; // holds the names of all the N2 nodes we've merged with ONLY USED FOR SOURCE AND SINK NODES
     string relativePrime;
     string relativeN1;
     string relativeN2;

@@ -48,8 +48,7 @@ int weightReachableFromX(std::map<std::string, node> &localCircuitGraph, string 
 bool pathExists(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
 std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
 
-float solutionRatioTarget = 0.5f;
-float solutionDeviation = 0.1f;              // TODO: both of these should be passed as arguments
+
 
 std::vector<string> reachableGLOBAL;    // used to store reachable nodes from another node
 
@@ -61,7 +60,10 @@ int main() {
 
     std::cout << "FBB-Partitioner: running" << std::endl;
 
-    std::map<std::string, node> circuitGraph = readFile("../benchmark_files/testModel.blif");  // read in the hypergraph
+    std::map<std::string, node> circuitGraph = readFile("../benchmark_files/b17_opt.blif");  // read in the hypergraph
+
+    float solutionRatioTarget = 0.5f;
+    float solutionDeviation = 0.1f;              // TODO: both of these should be passed as arguments
 
     std::cout << "FBB-Partitioner: Gate nodes in file: " << circuitGraph.size() << std::endl;
 
@@ -87,11 +89,12 @@ int main() {
     string sink = outputs[outputIndex];       // TODO EXTENSION: choose these nodes
 
     // OVERRIDE for sink/source
-
-    source = "c";
-    sink = "h";
+    //source = "c";
+    //sink = "i";
 
     std::cout << "FBB-Partitioner: Source chosen as: " << source << ". Sink chosen as: " << sink << std::endl;
+
+    std::cout << "FBB-Partitioner: Solution ratio set at: " << (int) 100*solutionRatioTarget << "% Skew tolerance set at: " << (int) 100*solutionDeviation<< "%" << std::endl;
 
     hyperToFlow(circuitGraph);   // convert the hypergraph to a flow graph
 
@@ -100,7 +103,7 @@ int main() {
 
 
 
-    SetDepthMetric(circuitGraph, sink); // set the depth metric for the flow graph
+    //SetDepthMetric(circuitGraph, sink); // set the depth metric for the flow graph
 
     std::cout << "FBB-Partitioner: Setup complete. Processing..." << std::endl;
 
@@ -115,6 +118,7 @@ int main() {
         do {
 
             resetGraph(circuitGraph);
+            std::cout<<"DEBUG: Executing BFS: "<<std::endl;
             start = std::clock();   // start a clock
             //foundPath = bfsGuidedPathGen(circuitGraph, source, sink);
             foundPath = bfsPathGen(circuitGraph, source, sink);
@@ -135,25 +139,22 @@ int main() {
 
 
 
-
-
-
         //look at the size of the sections we have
         resetGraph(circuitGraph);
         int sourceSideSize = weightReachableFromX(circuitGraph, source);
         resetGraph(circuitGraph);
         int sinkSideSize = weightReachableFromX(circuitGraph, sink);
 
+        std::cout << "DEBUG: current section sizes: Source: " <<sourceSideSize << " Sink: " << sinkSideSize << std::endl;
+
         // check to see if the current partition is good enouch
-        if (abs((solutionRatioTarget * nodes) - sourceSideSize) < (int) ceil(solutionDeviation * (float) nodes)) {
+        if (abs((solutionRatioTarget * nodes) - sourceSideSize) < (int) ceil(solutionDeviation * (float) nodes) || abs((solutionRatioTarget * nodes) - sourceSideSize) < (int) ceil(solutionDeviation * (float) nodes)) {
             //if the current division is good, return it
             //TODO handle this
             std::cout << "FBB-Partitioner: VALID PARTITION FOUND" << std::endl;
             return 0;
         }
         // TODO check both sides (not just source)
-
-
 
 
 
@@ -175,7 +176,6 @@ int main() {
         }
 
         //first strip non-prime and source and sink from the list
-
 	    int i = 0;
         while (i < reachableNodes.size())
         {
@@ -192,13 +192,28 @@ int main() {
 
         //merge all nodes remaining
         for (int i = 0; i < reachableNodes.size(); i++) {
-            mergeNodes(circuitGraph, mergeSide, reachableNodes[i]);
             cout<<"DEBUG: I'm merging " << reachableNodes[i] <<" into " << mergeSide << " during a group merge"<< endl;
+            mergeNodes(circuitGraph, mergeSide, reachableNodes[i]);
         }
 
         //merge a neighbor (or reachable?) of the new supernode;
 
         vector<string> neighbors = findPrimeNeighbors(circuitGraph, mergeSide);
+
+        // strip source and sink from the list
+        int j = 0;
+        while (j < neighbors.size())
+        {
+
+            if (neighbors[j] == source || neighbors[j] == sink)
+            {
+                neighbors.erase(neighbors.begin() + j);
+            }
+            else
+            {
+                ++j;
+            }
+        }
 
         //cout<<"DEBUG: I see "<< mergeSide << " has neighbors: ";
         //for(int i = 0; i < neighbors.size(); i++)
@@ -307,9 +322,26 @@ std::vector<string> findPrimeNeighbors(std::map<std::string, node> &nodeMap, str
             neighbors.push_back(nodeMap[temp.outputs[i]].relativePrime);
     }
 
-    if(temp.inOut != 2) // After merge there may be one than one of these!
+    if(temp.mergedN2Nodes.size() > 0) //if we have merged N2 nodes
     {
-        temp = nodeMap[temp.relativeN2];    // switch to the n2 node
+        node tempN2;
+        for(int i  = 0; i < temp.mergedN2Nodes.size(); i++) // look at all merged N2s
+        {
+            tempN2 = nodeMap[temp.mergedN2Nodes[i]];
+
+            for(int i = 0; i < tempN2.outputs.size(); i++)  // look at all outputs of each N2
+            {
+                if(tempN2.outputs[i] != workingNode)
+                    neighbors.push_back(tempN2.outputs[i]); // Add them to the neighbors list if they don't link back to ourself
+            }
+        }
+    }
+
+
+    if(temp.inOut != 2) // After merge there may be one than one relative N2!
+    {
+        temp = nodeMap[nodeMap[workingNode].relativeN2];    // switch to the original n2 node
+
         for (int i = 0; i < temp.outputs.size(); ++i)
         {
             if(temp.outputs[i] == workingNode)  // don't include the prime link
@@ -682,7 +714,11 @@ std::vector<string> nodesReachableFromX(std::map<std::string, node> &localCircui
         tempNode=localCircuitGraph[processQ.front()];
 
         if(tempNode.visCurOp)
+        {
+            processQ.pop();
             continue;       // we've already logged this node
+        }
+
         else
             localCircuitGraph[tempNode.name].visCurOp = true;
 
@@ -743,6 +779,7 @@ void mergeNodes(std::map<std::string, node> &nodeMap,string host, string victim)
     // set strctures after merge;
 
     hostNode.mergedNodes.push_back(victim); // add the victim to the list of merged nodes
+    hostNode.mergedN2Nodes.push_back(vicitmNode.relativeN2);
 
     hostNode.weight += vicitmNode.weight;
 
