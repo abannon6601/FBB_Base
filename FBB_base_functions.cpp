@@ -122,7 +122,7 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
             int cutSize = cutNets.size();
 
             std::cout << std::endl << "FBB-Partitioner: Cutsize: " << cutSize << std::endl;
-            std::cout << std::endl << "FBB-Partitioner: Area ratio: " << (float) sourceSideSize/nodes << std::endl;
+            std::cout << "FBB-Partitioner: Area ratio: " << (float) sourceSideSize/nodes << std::endl;
             std::cout << "FBB-Partitioner: Runtime: " << duration <<"s" << std::endl;
             std::cout << "FBB-Partitioner: Writing results to file..." << std::endl;
 
