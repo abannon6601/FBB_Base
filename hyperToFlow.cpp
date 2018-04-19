@@ -1,6 +1,6 @@
 //
 // Created by Alan on 01/03/2018.
-//#
+//
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -8,6 +8,7 @@
 #include <vector>
 #include <algorithm>
 #include "Hmain.h"
+
 using namespace std;
 
 int hyperToFlow(std::map<std::string, node> &nodeMap)

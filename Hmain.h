@@ -10,7 +10,7 @@
 #include <climits>
 using namespace std;
 
-// simple node object
+// node object
 struct node {
 
     //NODE PROPERTIES
@@ -41,7 +41,9 @@ struct node {
     //HEURISTICS
     int depth = INT_MAX;
 
+    //OTHER
     string visitedFrom; // used in BFS for path reporting
+    int connectedComponentID = 0;   // used to identify connected components
 };
 
 
@@ -63,6 +65,8 @@ std::vector<string> findCutsize(std::map<std::string, node> &localCircuitGraph, 
 
 int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<string> cutNets);
 
-int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath);
+int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath, bool verbose);
+
+int removeConnectedComponents(std::map<std::string, node> &localCircuitGraph);
 
 #endif //YWPARTITIONPROCESSOR_HMAIN_H

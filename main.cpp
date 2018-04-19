@@ -1,12 +1,7 @@
 /*
  * Current Issues:
  *
- *  Switch from recursive to itterative
- *
- *  bfsGuidedPathGen is very slow to return a path failure. Maybe make new BFS_exists funciton to only
- *  call gen when a path exists.
- *
- * Unreachable nodes?
+ *  some files use multiple spaces betwee names. fileRead needs updating
  *
  */
 /*
@@ -36,8 +31,9 @@ using namespace std;
 
 //FUNCTION DELCRATIONS
 int fetchInt();
+bool fetchYN();
 
-string defaultFilepath = "../benchmark_files/testModel.blif";
+string defaultFilepath = "../benchmark_files/testModel.blif"; // used if no user filepath given
 
 
 int main() {
@@ -76,9 +72,12 @@ int main() {
 
     solutionDeviation = (float) inputNum/100;
 
+    std::cout <<"FBB-Launcher: Enable verbose output y/n?:";
+    bool verbose = fetchYN();
+
 
     // run the FBB
-    int result = FBB_base(solutionRatioTarget, solutionDeviation, filePath);
+    int result = FBB_base(solutionRatioTarget, solutionDeviation, filePath, verbose);
 
     if(result != 0)
         std::cout << "FBB-Partitioner: Failed with error: " << result << std::endl;
@@ -86,6 +85,7 @@ int main() {
     return result;
 
 }
+
 //Fetches an integer from the user and avoids crashes when char string is input into scanf
 int fetchInt()
 {
@@ -110,3 +110,23 @@ int fetchInt()
     return inputInt;
 }
 
+//Fetches a true/false form the user with y/n
+bool fetchYN()
+{
+    string userInput;
+
+    bool flowControl = false;
+    while(!flowControl)
+    {
+        std::getline(std::cin, userInput);
+
+        if(userInput == "Y" || userInput == "y")
+        {
+            return true;
+        }
+        if(userInput == "N" || userInput == "n")
+        {
+            return false;
+        }
+    }
+}

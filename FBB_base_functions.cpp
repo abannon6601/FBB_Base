@@ -17,7 +17,7 @@
 #include <random>
 
 // main function for performaing a flow balanced bipartition
-int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath)
+int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath, bool verbose)
 {
     std::cout << "FBB-Partitioner: running" << std::endl;
 
@@ -30,6 +30,12 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
     }
 
     std::cout << "FBB-Partitioner: Gate nodes in file: " << circuitGraph.size() << std::endl;
+
+    int removedNodes = removeConnectedComponents(circuitGraph);
+    if(removedNodes > 0)
+    {
+        std::cout << "FBB-Partitioner: Disconnected components in file! Removing " << removedNodes << " nodes from consideration. This will not affect solution quality"  << std::endl;
+    }
 
     std::clock_t start;
     double duration;
@@ -104,12 +110,13 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
 
         //look at the size of the sections we have
         resetGraph(circuitGraph);
-        int sourceSideSize = weightReachableFromX(circuitGraph, source);
+        int sourceSideSize = weightReachableFromX(circuitGraph, source) + removedNodes; // include the removed nodes (if any) here
         resetGraph(circuitGraph);
         int sinkSideSize = weightReachableFromX(circuitGraph, sink);
 
         //std::cout <<"\33[2K\r";  // clear the line  UNRELIABLE BETWEEN CONSOLE ENVIROMENTS
-        std::cout << "FBB-Partitioner: current section sizes: Source: " <<sourceSideSize << " Sink: " << sinkSideSize << endl;
+        if(verbose)
+            std::cout << "FBB-Partitioner-VERBOSE: current section sizes: Source: " <<sourceSideSize << " Sink: " << sinkSideSize << endl;
 
         // check to see if the current partition is good enouch
         if (abs((solutionRatioTarget * nodes) - sourceSideSize) < (int) ceil(solutionDeviation * (float) nodes) || abs((solutionRatioTarget * nodes) - sourceSideSize) < (int) ceil(solutionDeviation * (float) nodes)) {
@@ -170,7 +177,10 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
 
         //merge all nodes remaining
         for (int i = 0; i < reachableNodes.size(); i++) {
-            //cout<<"DEBUG: I'm merging " << reachableNodes[i] <<" into " << mergeSide << " during a group merge"<< endl;
+
+            if(verbose)
+                cout<<"FBB-Partitioner-VERBOSE: Merging " << reachableNodes[i] <<" into " << mergeSide << " during a group merge"<< endl;
+
             mergeNodes(circuitGraph, mergeSide, reachableNodes[i]);
         }
 
@@ -199,7 +209,9 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
         }
 
         mergeNodes(circuitGraph, mergeSide, neighbors[0]);   //TODO, choose this rather than going for 0-index
-        cout<<"DEBUG: I'm merging " << neighbors[0] <<" into " << mergeSide << endl;
+
+        if(verbose)
+            cout<<"FBB-Partitioner-VERBOSE: Merging " << neighbors[0] <<" into " << mergeSide << endl;
     }
 
 
@@ -502,6 +514,9 @@ void mergeNodes(std::map<std::string, node> &nodeMap,string host, string victim)
     {
         // for each output go to the N2 node
 
+        if(nodeMap[vicitmNode.outputs[i]].outputs.size() < 1)
+            continue;
+
         string workingNode = nodeMap[vicitmNode.outputs[i]].outputs[0];  // this should be the N2 node that links back to us
 
         // remove the link to the victim
@@ -646,6 +661,92 @@ int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<strin
     }
 }
 
+// function find all connected components and removes all but the largest, returns number of nodes removed this way
+int removeConnectedComponents(std::map<std::string, node> &localCircuitGraph)
+{
+    std::map<std::string, node>::iterator it = localCircuitGraph.begin();
+
+    int connectedComponents = 0;
+    vector<int> connectedComponentSize;
+    int removedNodes = 0;
+
+    while (it != localCircuitGraph.end())
+    {
+        if(it->second.connectedComponentID < 1)    // we have a new connected component
+        {
+            connectedComponentSize.push_back(0);
+            queue <string> processQ;
+
+            // reset the graph because we're about to traverse it
+            resetGraph(localCircuitGraph);
+
+            processQ.push(it->second.name);
+
+            node tempNode;
+            vector <string> outputs;
+
+            while(processQ.size() > 0)
+            {
+                tempNode=localCircuitGraph[processQ.front()];
+
+                if(tempNode.visCurOp)
+                {
+                    processQ.pop();
+                    continue;       // we've already logged this node
+                }
+
+                else
+                    localCircuitGraph[tempNode.name].visCurOp = true;
+
+                for(int i = 0; i < tempNode.outputs.size(); i++)
+                {
+                    processQ.push(tempNode.outputs[i]); // queue all outputs to be processed
+                }
+                for(int i = 0; i < tempNode.inputs.size(); i++)
+                {
+                    processQ.push(tempNode.inputs[i]); // queue all inputs to be processed
+                }
+
+                localCircuitGraph[tempNode.name].connectedComponentID = connectedComponents + 1;    //mark the node as being in component (connectedComponents)
+                connectedComponentSize[connectedComponents]++;  // increase the size of this component
+
+                processQ.pop();
+            }
+            connectedComponents++;
+        }
+        it++;
+    }
+
+    if(connectedComponents > 1) // we have multiple connected components
+    {
+        int N = connectedComponentSize.size() / sizeof(int);
+        int indexOfMax = distance(connectedComponentSize.begin(), max_element(connectedComponentSize.begin(), connectedComponentSize.end()));
+        int largestComponentID = indexOfMax + 1;
+
+        connectedComponentSize.erase(connectedComponentSize.begin() + indexOfMax);// remove the largest connected component from the vector
+
+        // sum how many nodes are in other components:
+
+        removedNodes = std::accumulate(connectedComponentSize.begin(), connectedComponentSize.end(), 0);
+
+        cout<<endl;
+
+        // remove all the nodes not marked as part of the largest group
+        it = localCircuitGraph.begin();
+        while (it != localCircuitGraph.end())
+        {
+            if(it->second.connectedComponentID != largestComponentID)
+                localCircuitGraph.erase(it++);
+            else
+                ++it;
+        }
+
+    }
+
+
+
+    return removedNodes;
+}
 
 
 // HEURISTIC SETTING FUNCTIONS:-----------------------------------------------------------------------------------------
