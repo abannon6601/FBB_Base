@@ -748,7 +748,11 @@ int removeConnectedComponents(std::map<std::string, node> &localCircuitGraph)
 
         // sum how many nodes are in other components:
 
-        removedNodes = accumulate(connectedComponentSize.begin(), connectedComponentSize.end(), 0);
+        for(std::vector<int>::iterator it =connectedComponentSize.begin(); it != connectedComponentSize.end(); ++it)
+            removedNodes += *it;
+
+        // removed and using code above
+        //removedNodes = accumulate(connectedComponentSize.begin(), connectedComponentSize.end(), 0);
 
         cout<<endl;
 
