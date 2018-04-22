@@ -31,9 +31,6 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
 
     std::cout << "FBB-Partitioner: Gate nodes in file: " << circuitGraph.size() << std::endl;
 
-
-    initialiseGraph(circuitGraph);
-
     int removedNodes = removeConnectedComponents(circuitGraph);
     if(removedNodes > 0)
     {
@@ -773,30 +770,10 @@ int removeConnectedComponents(std::map<std::string, node> &localCircuitGraph)
     return removedNodes;
 }
 
-// Function to initialise the graph as the Gatech ECE cluster won't compile C++11 because our sysadmin has the technical competence of a concussed squirrel
-// ONLY RUN BEFORE HYPERGRAPH CONVERSION
-void initialiseGraph(std::map<std::string, node> &localCircuitGraph)
-{
-    std::map<std::string, node>::iterator it = localCircuitGraph.begin();
-
-    while (it != localCircuitGraph.end())
-    {
-        it->second.visCurOp = false;  // during any operation on the matrix this is set high if the node has been visited
-        it->second.weight = 1; // as nodes are combined this is increased
-        it->second.prime = true; // as nodes are combined this is increased
-        it->second.orphan = false;    // set true if the original prime node has been merged
-        it->second.marked = false;            // used to mark if the node is part of a section in cutsize generation
-        it->second.depth = INT_MAX;
-        it->second.connectedComponentID = 0;   // used to identify connected components
-        it++;
-    }
-}
-
-
-
 
 
 // HEURISTIC SETTING FUNCTIONS:-----------------------------------------------------------------------------------------
+// not used
 
 // Sets the depth metric of all nodes reachable from startNode.
 void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string startNode)

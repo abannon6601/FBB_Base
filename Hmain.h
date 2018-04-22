@@ -12,7 +12,7 @@ using namespace std;
 
 // node object
 struct node {
-
+    node() : inOut(0), prime(true), nState(0), visCurOp(false), weight(1), orphan(false), marked(false), depth(INT_MAX), connectedComponentID(0) {}
     //NODE PROPERTIES
     string name;    // name of the output in the BLIF file (we use as name of the gate)
     int inOut;  // 0:standard node 1:input node 2:output node
@@ -106,6 +106,5 @@ int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<strin
 int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath, bool verbose);
 
 int removeConnectedComponents(std::map<std::string, node> &localCircuitGraph);
-void initialiseGraph(std::map<std::string, node> &localCircuitGraph);
 
 #endif //YWPARTITIONPROCESSOR_HMAIN_H
