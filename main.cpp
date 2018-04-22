@@ -1,8 +1,10 @@
 /*
  * Current Issues:
  *
- *  some files use multiple spaces betwee names. fileRead needs updating
+ *  BFS path gen is generating ghost nodes for s9234
  *
+ *  Basically s-xyz files are weird and my parser doesn't like them
+ *  check inputs; may not be tagging properly
  */
 /*
  * Code Structure:

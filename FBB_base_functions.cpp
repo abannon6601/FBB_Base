@@ -89,12 +89,17 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
     {
 
         do {
+
             resetGraph(circuitGraph);
-           // std::cout<<"DEBUG: Executing BFS: "<<std::endl;
-            //start = std::clock();   // start a clock
+            /*
+            std::cout<<"DEBUG: Executing BFS: "<<std::endl;
+            start = std::clock();   // start a clock
+
+            duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+            std::cout<<"DEBUG: BFS took: "<< duration <<std::endl;
+             */
+
             foundPath = bfsPathGen(circuitGraph, source, sink);
-            //duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-           // std::cout<<"DEBUG: BFS took: "<< duration <<std::endl;
 
             if (foundPath.size() < 1)        // we don't have a path
             {
@@ -168,6 +173,7 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
             if (!(circuitGraph[reachableNodes[i]].prime) || reachableNodes[i] == source || reachableNodes[i] == sink)
             {
                 reachableNodes.erase(reachableNodes.begin() + i);
+                i = 0;
             }
             else
             {
@@ -212,6 +218,7 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
 
         if(verbose)
             cout<<"FBB-Partitioner-VERBOSE: Merging " << neighbors[0] <<" into " << mergeSide << endl;
+
     }
 
 
@@ -382,8 +389,12 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
 
     vector<string> path;
 
+
+
+
     while(processQ.size() > 0)
     {
+
         tempNode=localCircuitGraph[processQ.front()];
 
         if(tempNode.name == targetNode)
@@ -413,8 +424,15 @@ std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, s
         processQ.pop();
     }
 
+
+
+
+
+
     if(localCircuitGraph[targetNode].visitedFrom.size() > 0)    // if we actually reached the target work backwards using visited From
     {
+
+
         localCircuitGraph[startNode].visitedFrom.clear(); // shouldn't be needed, but why take chances
 
         queue <string> processQ2;
@@ -799,7 +817,6 @@ void SetDepthMetric(std::map<std::string, node> &localCircuitGraph, string start
         processQ.pop();
     }
 }
-
 
 
 
