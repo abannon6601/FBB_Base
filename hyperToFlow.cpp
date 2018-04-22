@@ -11,6 +11,9 @@
 
 using namespace std;
 
+
+void initialiseNNode(node &inNode);
+
 int hyperToFlow(std::map<std::string, node> &nodeMap)
 {
     // at each node
@@ -60,6 +63,10 @@ int hyperToFlow(std::map<std::string, node> &nodeMap)
                 N1.relativeN2 = N2.name;
                 N2.relativeN1 = N1.name;
 
+                //setup the other variables
+                initialiseNNode(N1);
+                initialiseNNode(N2);
+
 
                 nodeMap[N2.name] = N2;
                 nodeMap[N1.name] = N1;  // push the new nodes into the map
@@ -99,4 +106,15 @@ int hyperToFlow(std::map<std::string, node> &nodeMap)
     }
 
     return 0;   // could insert an error message in place here
+}
+
+// initialise a non-primary node
+void initialiseNNode(node &inNode)
+{
+    inNode.visCurOp = false;  // during any operation on the matrix this is set high if the node has been visited
+    inNode.weight = 1; // as nodes are combined this is increased
+    inNode.orphan = false;    // set true if the original prime node has been merged
+    inNode.marked = false;            // used to mark if the node is part of a section in cutsize generation
+    inNode.depth = INT_MAX;
+    inNode.connectedComponentID = 0;   // used to identify connected components
 }

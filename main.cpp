@@ -5,6 +5,8 @@
  *
  *  Basically s-xyz files are weird and my parser doesn't like them
  *  check inputs; may not be tagging properly
+ *
+ *  also check that inputs aren't being removed as part of the connnected component cleanup
  */
 /*
  * Code Structure:
@@ -132,3 +134,5 @@ bool fetchYN()
         }
     }
 }
+
+
