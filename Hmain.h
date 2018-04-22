@@ -101,7 +101,7 @@ int weightReachableFromX(std::map<std::string, node> &localCircuitGraph, string 
 std::vector<string> bfsPathGen(std::map<std::string, node> &localCircuitGraph, string startNode, string targetNode);
 std::vector<string> findCutsize(std::map<std::string, node> &localCircuitGraph, string startNode);
 
-int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<string> cutNets);
+int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<string> cutNets, string filePath);
 
 int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath, bool verbose);
 

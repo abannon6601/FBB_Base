@@ -16,6 +16,8 @@
 #include <ctime>
 #include <random>
 
+std::string now( const char* format);
+
 // main function for performaing a flow balanced bipartition
 int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath, bool verbose)
 {
@@ -138,7 +140,7 @@ int FBB_base(float solutionRatioTarget, float solutionDeviation, string filepath
             std::cout << "FBB-Partitioner: Runtime: " << duration <<"s" << std::endl;
             std::cout << "FBB-Partitioner: Writing results to file..." << std::endl;
 
-            if(writeToFile(cutSize, duration, (float) sourceSideSize/nodes, cutNets) == 0)
+            if(writeToFile(cutSize, duration, (float) sourceSideSize / nodes, cutNets, filepath) == 0)
                 std::cout << "FBB-Partitioner: Write succeeded." << std::endl;
             else
                 std::cout << "FBB-Partitioner: Write failed" << std::endl;
@@ -653,17 +655,20 @@ std::vector<string> findCutsize(std::map<std::string, node> &localCircuitGraph, 
 }
 
 // write results to a file
-int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<string> cutNets)
+int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<string> cutNets, string filePath)
 {
     //TODO add a date/time stamp to output file
 
+    string dateTime = now("%Y-%m-%d-%H-%M-%S");
+    string fileName = "FBB_results_" + dateTime + ".txt";
 
     ofstream resultFile;
-    resultFile.open ("FBB_results.txt");
+    resultFile.open(fileName);
 
-    if (resultFile.is_open())
+    if(resultFile.is_open())
     {
-        resultFile << "FBB Algorthim results:\n" << "Cutsize: " << cutsize << " Runtime: " << runtime << " Area ratio: " << solutionRatio << endl;
+        resultFile << "FBB Run on: " << filePath << endl;
+        resultFile << "FBB results:\n" << "Cutsize: " << cutsize << " Runtime: " << runtime << " Area ratio: " << solutionRatio << endl;
         resultFile << "Cut nets:" << endl << endl;
 
 
@@ -677,6 +682,15 @@ int writeToFile(int cutsize, int runtime, float solutionRatio, std::vector<strin
     {
         return 1;
     }
+}
+
+// simple file to return the current time as a string
+std::string now( const char* format)
+{
+    std::time_t t = std::time(0) ;
+    char cstr[128] ;
+    std::strftime(cstr, sizeof(cstr), format, std::localtime(&t) ) ;
+    return cstr ;
 }
 
 // function find all connected components and removes all but the largest, returns number of nodes removed this way
