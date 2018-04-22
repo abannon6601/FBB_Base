@@ -81,6 +81,7 @@ map<string, node> readFile(string fileAdr){
     else
     {
         nodeMap.clear();
+        std::cout << "FBB-Partitioner: Unable to read file" << endl;
         return nodeMap;
     }
 
