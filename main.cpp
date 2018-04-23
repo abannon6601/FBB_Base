@@ -37,7 +37,7 @@ using namespace std;
 int fetchInt();
 bool fetchYN();
 
-string defaultFilepath = "../benchmark_files/testModel.blif"; // used if no user filepath given
+string defaultFilepath = "../benchmark_files/s9234.blif"; // used if no user filepath given
 
 
 int main() {

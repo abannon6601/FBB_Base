@@ -7,7 +7,7 @@
 #include "Hmain.h"
 using namespace std;
 
-// TODO update latch parsing to remove additional type-control options if present
+// TODO change to node creation and single map access and insertion
 
 // Function to parse BLIF files into an ordered hashmap wih the names of the gates as the key
 map<string, node> readFile(string fileAdr){
@@ -36,7 +36,6 @@ map<string, node> readFile(string fileAdr){
 
             if(words[0] == ".names" || words[0] == ".latch")
             {
-
                 if(words[0] == ".latch" && (words.back() == "0" || words.back() == "1" || words.back() == "2" || words.back() == "3"))
                     words.pop_back();   // strip the state off the latches as we don't care
 
@@ -70,10 +69,47 @@ map<string, node> readFile(string fileAdr){
             else if(words[0] == ".inputs"){
                 words.erase(words.begin()); // remove the label
                 inputs = words;
-            }                                   //POPULATE INPUT/OUTPUT LISTS THESE MUST BE FIRST IN THE FILE
+
+                if(words.back() == "\\")    // we have another line of inputs
+                {
+                    do
+                    {
+                        // read a new line
+                        words.clear();
+                        getline(myfile,line);
+                        stringstream ss(line);
+                        while (ss >> buf)
+                            words.push_back(buf);   // words is now a vector of the elements in line
+
+                        for(int i = 0; i < words.size(); i++)
+                            inputs.push_back(words[i]);
+                        // add it to inputs
+
+
+                    }while(words.back() ==  "\\");
+                }
+            }                                               //POPULATE INPUT/OUTPUT LISTS THESE MUST BE FIRST IN THE FILE
             else if(words[0] == ".outputs"){
                 words.erase(words.begin()); // remove the label
                 outputs = words;
+
+                if(words.back() == "\\")    // we have another line of ouputs
+                {
+                    do {
+                        // read a new line
+                        words.clear();
+                        getline(myfile, line);
+                        stringstream ss(line);
+                        while (ss >> buf)
+                            words.push_back(buf);   // words is now a vector of the elements in line
+
+                        for (int i = 0; i < words.size(); i++)
+                            outputs.push_back(words[i]);
+                        // add it to inputs
+
+
+                    } while (words.back() == "\\");
+                }
             }
         }
         myfile.close();
