@@ -1,19 +1,18 @@
 /*
+ * Written by Alan Bannon Spring 2018 for ECE6133 Physical Design Automation of VLSI Systems at Georgia Tech
+ *
+ * Program impliments a Flow-Balance Bipartion algorithm to produce partition solutions. Input files must be in .BLIF format
+ *
+ */
+
+
+/*
  * Current Issues:
  *
- *  BFS path gen is generating ghost nodes for s9234
- *
- *  Basically s-xyz files are weird and my parser doesn't like them
- *  check inputs; may not be tagging properly
- *
- *  also check that inputs aren't being removed as part of the connnected component cleanup
- */
-/*
- * Code Structure:
- *
- *
+ *  None
  *
  */
+
 
 #include <iostream>
 #include <fstream>
@@ -39,13 +38,14 @@ bool fetchYN();
 
 string defaultFilepath = "../benchmark_files/s9234.blif"; // used if no user filepath given
 
-
+// main acts just as a launcher for the main function which is in FBB_base_functions
 int main() {
 
     string filePath;
     float solutionRatioTarget;
     float solutionDeviation;
     int inputNum;
+    int runs;
 
     std::cout <<"FBB-Launcher: Please enter filepath: ";
     std::getline(std::cin, filePath);
@@ -63,7 +63,6 @@ int main() {
         std::cout <<"FBB-Launcher: Please enter a valid percentage ratio:";
         inputNum = fetchInt();
     }
-
     solutionRatioTarget = (float) inputNum/100;
 
     std::cout <<"FBB-Launcher: Please enter target solution deviation (enter a number between 1-100):";
@@ -80,12 +79,23 @@ int main() {
     bool verbose = fetchYN();
 
 
+    std::cout <<"FBB-Launcher: Please enter number of runs:";
+    runs = fetchInt();
+
+
+
+    int result = 0;
     // run the FBB
-    int result = FBB_base(solutionRatioTarget, solutionDeviation, filePath, verbose);
+    for(int i = 0; i < runs; i++)
+    {
+        std::cout << "FBB-Launcher: Starting Run: " << i+1 << endl;
 
-    if(result != 0)
-        std::cout << "FBB-Partitioner: Failed with error: " << result << std::endl;
+        result = FBB_base(solutionRatioTarget, solutionDeviation, filePath, verbose);
 
+
+        if (result != 0)
+            std::cout << "FBB-Partitioner: Failed with error: " << result << std::endl;
+    }
     return result;
 
 }

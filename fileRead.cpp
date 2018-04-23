@@ -9,7 +9,7 @@ using namespace std;
 
 // TODO change to node creation and single map access and insertion
 
-// Function to parse BLIF files into an ordered hashmap wih the names of the gates as the key
+// Function to parse BLIF files into an ordered hashmap with the names of the gates as the key
 map<string, node> readFile(string fileAdr){
 
     string line;
